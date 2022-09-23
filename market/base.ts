@@ -45,7 +45,10 @@ export class Spec {
         return me;
     }
 
-    static key<T extends typeof Spec>(this: T, name: keyof InstanceType<T>) : string {
+    static key<T extends typeof Spec>(
+        this: T,
+        name: keyof InstanceType<T>,
+    ): string {
         const spec: any = this._instance();
         const it = spec[name];
         if (it instanceof Property) {
