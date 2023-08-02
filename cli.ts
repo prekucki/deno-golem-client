@@ -11,13 +11,23 @@ async function main() {
     const me = await client.identity();
     console.log(me.identity, me.name);
 
-    const market = new MarketApi(client);
+    const nets = await (await client.get('net-api/v1/net')).json();
+    console.log('nets', nets);
+    console.table(nets);
+
+    const net_id = nets[0].id;
+    let r = await (await client.get(`net-api/v1/net/${net_id}/listen-tcp/80`)).json();
+    console.log('listent', r);
+
+    /*const market = new MarketApi(client);
 
     console.table(await market.offers(), [
         "offerId",
         "providerId",
         "timestamp",
     ]);
+*/
+
 }
 
-await main();
+main().then(function () {});

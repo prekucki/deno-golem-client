@@ -4,11 +4,13 @@ import { build, emptyDir } from "https://deno.land/x/dnt/mod.ts";
 await emptyDir("./npm");
 
 await build({
-    entryPoints: ["./mod.ts"],
+    entryPoints: ["./mod.ts", "./cli.ts"],
     outDir: "./npm",
     shims: {
         // see JS docs for overview and more options
         deno: true,
+        undici: true,
+        webSocket: true,
     },
     package: {
         // package.json properties

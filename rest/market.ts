@@ -73,12 +73,27 @@ export class MarketApi {
         this._client = client;
     }
 
-    async offers(): Promise<Array<Offer>> {
-        const resp = await this._client.get(`${MARKET_BASE}offers`);
+    private async _get<T>(path: string): Promise<T> {
+        const resp = await this._client.get(`${MARKET_BASE}${path}`);
         if (resp.status == 200) {
-            return await resp.json();
+            return await resp.json() as T;
         }
 
+        throw new Error(`invalid response: ${resp.statusText}`);
+    }
+
+    offers(): Promise<Array<Offer>> {
+        return this._get("offers");
+    }
+    demands(): Promise<Array<Offer>> {
+        return this._get("demands");
+    }
+
+    async createDemand(data: DemandOfferBase): Promise<Demand> {
+        const resp = await this._client.post(`${MARKET_BASE}demands`, data);
+        if (resp.status == 201) {
+            return await resp.json() as Demand;
+        }
         throw new Error(`invalid response: ${resp.statusText}`);
     }
 }
