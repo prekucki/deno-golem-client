@@ -1,26 +1,36 @@
-import { Command, CommandGroup, string } from "https://deno.land/x/clay/mod.ts";
+import {
+    boolean,
+    Command,
+    CommandGroup,
+    string,
+} from "https://deno.land/x/clay/mod.ts";
 import { BigDenary } from "https://deno.land/x/bigdenary/mod.ts";
-import WebClient from '../rest/client.ts'
+import WebClient from "../rest/client.ts";
 
 type CmdConfig = {
-    appKey: string | null,
-    url:string | null
-}
+    appKey: string | null;
+    url: string | null;
+};
 
 type Allocation = {
-    allocationId: string,
-    address: string,
-    paymentPlatform: string,
-    totalAmount: string | number,
-    spentAmount: string | number,
-    remainingAmount: string | number,
-    timestamp: string,
-    timeout: string | undefined,
-    makeDeposit: boolean,
-}
+    allocationId: string;
+    address: string;
+    paymentPlatform: string;
+    totalAmount: string | number;
+    spentAmount: string | number;
+    remainingAmount: string | number;
+    timestamp: string;
+    timeout: string | undefined;
+    makeDeposit: boolean;
+};
 
-function resolveClient(config : CmdConfig) : WebClient {
-    const decode = (v : string | null, env : string, message : string, default_value : string | null = null) : string => {
+function resolveClient(config: CmdConfig): WebClient {
+    const decode = (
+        v: string | null,
+        env: string,
+        message: string,
+        default_value: string | null = null,
+    ): string => {
         if (v !== null) {
             return v;
         }
@@ -32,35 +42,47 @@ function resolveClient(config : CmdConfig) : WebClient {
             return default_value;
         }
         throw new Error(message);
-    }
+    };
 
     const appKey = decode(config.appKey, "YAGNA_APPKEY", "expected api-key");
-    const apiUrl = decode(config.url, "YAGNA_API_URL", "expected api url", 'http://127.0.0.1:7465/');
+    const apiUrl = decode(
+        config.url,
+        "YAGNA_API_URL",
+        "expected api url",
+        "http://127.0.0.1:7465/",
+    );
     return new WebClient(appKey, apiUrl);
 }
 async function main() {
-
     const list = new Command("list allocations")
-        .optional(string, "appKey", { flags: ["k", "app-key"], description: "Golem REST server authorization token" })
+        .optional(string, "appKey", {
+            flags: ["k", "app-key"],
+            description: "Golem REST server authorization token",
+        })
         .optional(string, "url", { flags: ["url"], description: "api url" });
-
 
     const clean = new Command("clean allocations")
-        .optional(string, "appKey", { flags: ["k", "app-key"], description: "Golem REST server authorization token" })
-        .optional(string, "url", { flags: ["url"], description: "api url" });
-
+        .optional(string, "appKey", {
+            flags: ["k", "app-key"],
+            description: "Golem REST server authorization token",
+        })
+        .optional(string, "url", { flags: ["url"], description: "api url" })
+        .optional(boolean, "byTs", {
+            flags: ["by-ts"],
+            description: "clean by timestamp",
+        });
 
     const manage = new CommandGroup("A simple example.")
         .subcommand("list", list)
-        .subcommand("clean", clean)
+        .subcommand("clean", clean);
 
     const args = manage.run();
 
     if (args.list) {
         const client = resolveClient(args.list);
-        const result = await client.get('payment-api/v1/allocations');
+        const result = await client.get("payment-api/v1/allocations");
         const allocations = (await result.json()) as Allocation[];
-        console.table(allocations.map((a)=> {
+        console.table(allocations.map((a) => {
             return {
                 allocationId: a.allocationId,
                 timestamp: a.timestamp,
@@ -68,27 +90,50 @@ async function main() {
                 spentAmount: new BigDenary(a.spentAmount).toString(),
                 paymentPlatform: a.paymentPlatform
                     .replace("erc20-", "")
-                    .replace("-tglm", "")
-            }
+                    .replace("-tglm", ""),
+            };
         }));
     }
     if (args.clean) {
+        const byTs = args.clean.byTs;
         const client = resolveClient(args.clean);
-        const result = await client.get('payment-api/v1/allocations');
+        const result = await client.get("payment-api/v1/allocations");
         const allocations = (await result.json()) as Allocation[];
-        const now = new Date().toUTCString();
+        const now = new Date().getTime();
+        const day = 24 * 3600 * 1000;
         for (let allocation of allocations) {
-            if (allocation.timeout && new Date(allocation.timeout).toUTCString() < now) {
-                console.log('dropping', allocation.allocationId, 'timeout=', allocation.timeout);
-                const b = await client.delete(`payment-api/v1/allocations/${allocation.allocationId}`);
-                console.log('status', b.status);
+            const timeout = byTs
+                ? new Date(allocation.timestamp).getTime() - day
+                : allocation.timeout
+                ? new Date(allocation.timeout).getTime()
+                : undefined;
+
+            if (timeout && timeout < now) {
+                console.log(
+                    "dropping",
+                    allocation.allocationId,
+                    "timeout=",
+                    allocation.timeout,
+                );
+                const b = await client.delete(
+                    `payment-api/v1/allocations/${allocation.allocationId}`,
+                );
+                console.log("status", b.status);
+            } else {
+                console.log(
+                    "timeout",
+                    allocation.timeout,
+                    ":",
+                    allocation.timeout ? new Date(allocation.timeout) : null,
+                    allocation.timeout
+                        ? new Date(allocation.timeout).getTime()
+                        : null,
+                    "=>",
+                    now,
+                );
             }
         }
-
     }
-
-
 }
-
 
 await main();

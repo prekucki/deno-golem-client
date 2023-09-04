@@ -36,7 +36,7 @@ export default class WebClient {
     async delete(path: string): Promise<Response> {
         const url = `${this._rpcUrl}${path}`;
         return await fetch(url, {
-            method: 'DELETE',
+            method: "DELETE",
             headers: {
                 authorization: `Bearer ${this._appKey}`,
             },
