@@ -7,16 +7,19 @@ type CmdConfig = {
     url:string | null
 }
 
-type Allocation = {
-    allocationId: string,
-    address: string,
-    paymentPlatform: string,
-    totalAmount: string | number,
+type Invoice = {
+    invoiceId: string,
+    issuerId: string,
+    recipientId: string,
+    payeeAddr: string,
     spentAmount: string | number,
-    remainingAmount: string | number,
+    payerAddr: string,
+    paymentPlatform:string,
     timestamp: string,
-    timeout: string | undefined,
-    makeDeposit: boolean,
+    agreementId: string,
+    amount: string
+    paymentDueDate: string,
+    status: string
 }
 
 function resolveClient(config : CmdConfig) : WebClient {
@@ -40,53 +43,52 @@ function resolveClient(config : CmdConfig) : WebClient {
 }
 async function main() {
 
-    const list = new Command("list allocations")
+    const list = new Command("list invoices")
         .optional(string, "appKey", { flags: ["k", "app-key"], description: "Golem REST server authorization token" })
         .optional(string, "url", { flags: ["url"], description: "api url" });
 
 
-    const clean = new Command("clean allocations")
+    const reject = new Command("reject invoice")
         .optional(string, "appKey", { flags: ["k", "app-key"], description: "Golem REST server authorization token" })
-        .optional(string, "url", { flags: ["url"], description: "api url" });
+        .optional(string, "url", { flags: ["url"], description: "api url" })
+        .required(string, "invoiceId");
 
 
     const manage = new CommandGroup("A simple example.")
         .subcommand("list", list)
-        .subcommand("clean", clean)
+        .subcommand("reject", reject)
 
     const args = manage.run();
 
     if (args.list) {
         const client = resolveClient(args.list);
-        const result = await client.get('payment-api/v1/allocations');
-        const allocations = (await result.json()) as Allocation[];
+        const result = await client.get('payment-api/v1/invoices');
+        const allocations = (await result.json()) as Invoice[];
         console.log(JSON.stringify(allocations, null, 4))
 
         console.table(allocations.map((a)=> {
             return {
-                allocationId: a.allocationId,
+                invoiceId: a.invoiceId,
+                status: a.status,
+                issuerId: a.issuerId,
                 timestamp: a.timestamp,
-                timeout: a.timeout,
-                spentAmount: new BigDenary(a.spentAmount).toString(),
+                paymentDueDate: a.paymentDueDate,
+                amount: new BigDenary(a.amount).toString(),
                 paymentPlatform: a.paymentPlatform
                     .replace("erc20-", "")
                     .replace("-tglm", "")
             }
         }));
     }
-    if (args.clean) {
-        const client = resolveClient(args.clean);
-        const result = await client.get('payment-api/v1/allocations');
-        const allocations = (await result.json()) as Allocation[];
-        const now = new Date().toUTCString();
-        for (let allocation of allocations) {
-            if (allocation.timeout && new Date(allocation.timeout).toUTCString() < now) {
-                console.log('dropping', allocation.allocationId, 'timeout=', allocation.timeout);
-                const b = await client.delete(`payment-api/v1/allocations/${allocation.allocationId}`);
-                console.log('status', b.status);
-            }
-        }
+    if (args.reject) {
+        const client = resolveClient(args.reject);
+        const {invoiceId} = args.reject;
 
+        const result = await client.post(`payment-api/v1/invoices/${invoiceId}/reject`,
+            {rejectionReason: "INCORRECT_AMOUNT", totalAmountAccepted: 0, message: "rejected by admin"});
+
+
+        console.log(await result.text());
     }
 
 

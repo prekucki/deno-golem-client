@@ -25,6 +25,7 @@ export default class WebClient {
     async post(path: string, body: any): Promise<Response> {
         const url = `${this._rpcUrl}${path}`;
         return await fetch(url, {
+            method: "POST",
             headers: {
                 authorization: `Bearer ${this._appKey}`,
                 ["content-type"]: "application/json",
