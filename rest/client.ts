@@ -5,8 +5,8 @@ type NodeInfo = {
 };
 
 export default class WebClient {
-    private _rpcUrl: string;
-    private _appKey: string;
+    private readonly _rpcUrl: string;
+    private readonly _appKey: string;
 
     constructor(appKey: string, rpcUrl: string) {
         this._appKey = appKey;
